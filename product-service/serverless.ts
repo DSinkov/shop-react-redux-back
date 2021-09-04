@@ -1,5 +1,5 @@
 import type { AWS } from '@serverless/typescript';
-import {getProductsById, getProductsList} from '@functions/index';
+import { getProductsById, getProductsList, postProduct } from '@functions/index';
 
 const serverlessConfiguration: AWS = {
   useDotenv: true,
@@ -26,12 +26,17 @@ const serverlessConfiguration: AWS = {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       EXCHANGE_RATE_API_KEY: '${env:EXCHANGE_RATE_API_KEY}',
       BUCKET_URI: '${env:BUCKET_URI}',
-      CORS_ORIGIN: '${env:CORS_ORIGIN}'
+      CORS_ORIGIN: '${env:CORS_ORIGIN}',
+      PGUSER:'${env:PGUSER}',
+      PGHOST:'${env:PGHOST}',
+      PGPASSWORD:'${env:PGPASSWORD}',
+      PGDATABASE:'${env:PGDATABASE}',
+      PGPORT:'${env:PGPORT}',
     },
     lambdaHashingVersion: '20201221',
   },
   // import the function via paths
-  functions: { getProductsList, getProductsById },
+  functions: { getProductsList, getProductsById, postProduct },
 };
 
 module.exports = serverlessConfiguration;
