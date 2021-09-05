@@ -30,4 +30,18 @@ insert into stocks (product_id, count)
 values ('3b5bf120-ae71-4018-a1d0-12b510d92caa6', 486),
        ('27c825bc-0158-4228-8d9d-165116ff1152', 392);
 
-
+create or replace function new_product(p_title text, p_description text, p_price int, p_img text, s_count int)
+    returns uuid
+as
+$BODY$
+declare
+    p_id uuid;
+begin
+    insert into products (title, description, price, img)
+    values (p_title, p_description, p_price, p_img)
+    returning products.id into p_id;
+    insert into stocks(product_id, count) values (p_id, s_count);
+    return p_id;
+end;
+$BODY$
+    language plpgsql volatile;
