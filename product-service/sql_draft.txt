@@ -1,0 +1,47 @@
+create extension if not exists "uuid-ossp";
+
+create table products
+(
+    id          uuid primary key default uuid_generate_v4(),
+    title       text not null,
+    description text,
+    price       int,
+    img         text
+);
+
+create table stocks
+(
+    product_id uuid,
+    count      int,
+    foreign key (product_id) references products (id) on delete cascade on update cascade
+);
+
+insert into products (title, description, price, img)
+values ('Wildlife Rescue Camp',
+        'This LEGO® City Wildlife Rescue Camp (60307) toy playset is packed with fun features. There’s a well-equipped treehouse-camp with a watchtower, plus a floating dinghy, mobile research lab, motorbike and an ultralight. Kids also get 6 minifigures, including LEGO City TV character Sleet, plus elephant, lion, lioness, lion cub, eagle and monkey figures for fun-packed wildlife adventures.',
+        100,
+        'https://legoshop-imgaes.s3.eu-west-1.amazonaws.com/60307.jpg'),
+       ('Wildlife Rescue Operation',
+        'This multi-model LEGO® City Wildlife Rescue Operation (60302) playset is packed with awesome features, including a cool winch helicopter, tracked vehicle, savanna setting with landslide function and a veterinary station. Just add the toy elephants, crocodiles, monkey and rescue team for endless hours of exciting animal-rescue fun.',
+        90,
+        'https://legoshop-imgaes.s3.eu-west-1.amazonaws.com/60302.jpg');
+
+insert into stocks (product_id, count)
+values ('3b5bf120-ae71-4018-a1d0-12b510d92caa6', 486),
+       ('27c825bc-0158-4228-8d9d-165116ff1152', 392);
+
+create or replace function new_product(p_title text, p_description text, p_price int, p_img text, s_count int)
+    returns uuid
+as
+$BODY$
+declare
+    p_id uuid;
+begin
+    insert into products (title, description, price, img)
+    values (p_title, p_description, p_price, p_img)
+    returning products.id into p_id;
+    insert into stocks(product_id, count) values (p_id, s_count);
+    return p_id;
+end;
+$BODY$
+    language plpgsql volatile;
