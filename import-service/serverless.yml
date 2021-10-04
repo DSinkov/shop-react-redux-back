@@ -1,5 +1,6 @@
 service: import-service
-frameworkVersion: '2'
+useDotenv: true
+variablesResolutionMode: 20210326
 
 provider:
   name: aws
@@ -20,6 +21,45 @@ provider:
         - "s3:*"
       Resource:
         - "arn:aws:s3:::rss-task-5/*"
+    - Effect: "Allow"
+      Action:
+        - "sqs:*"
+      Resource:
+        - Fn::GetAtt: [catalogItemsQueue, Arn]
+    - Effect: "Allow"
+      Action:
+        - "sns:*"
+      Resource:
+        Ref: createProductTopic
+
+  environment:
+    PGUSER: ${env:PGUSER}
+    PGHOST: ${env:PGHOST}
+    PGPASSWORD: ${env:PGPASSWORD}
+    PGDATABASE: ${env:PGDATABASE}
+    PGPORT: ${env:PGPORT}
+    SQS_URL:
+      Ref: catalogItemsQueue
+    SNS_ARN:
+      Ref: createProductTopic
+
+resources:
+  Resources:
+    catalogItemsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: rs-task-6-sqs
+    createProductTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: rs-task-6-topic
+    createProductSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: ellipsoid8@gmail.com
+        Protocol: email
+        TopicArn:
+          Ref: createProductTopic
 
 functions:
   importProductsFile:
@@ -41,3 +81,14 @@ functions:
           rules:
             - prefix: uploaded/
           existing: true
+
+  catalogBatchProcess:
+    handler: handler.catalogBatchProcess
+    events:
+      - sqs:
+          batchSize: 5
+          arn:
+            Fn::GetAtt:
+              - catalogItemsQueue
+              - Arn
+

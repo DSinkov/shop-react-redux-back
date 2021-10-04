@@ -3,8 +3,14 @@ const AWS = require('aws-sdk');
 const csv = require('csv-parser');
 const util = require('util');
 const stream = require('stream');
+const pg = require('pg');
 
 const BUCKET = 'rss-task-5';
+const DB_CONFIG = {
+  ssl: {rejectUnauthorized: false},
+  connectionTimeoutMillis: 5000
+};
+const CREATE_PRODUCT = 'select new_product($1, $2, $3, $4, $5)';
 
 const finished = util.promisify(stream.finished);
 
@@ -46,8 +52,10 @@ module.exports.importFileParser = async (event) => {
   const handle = () => {
     return new Promise(() => {
       const s3 = new AWS.S3({region: 'eu-west-1'});
+      const sqs = new AWS.SQS({region: 'eu-west-1'});
 
       const fn = async (record) => {
+        const results = [];
         const s3Stream = s3.getObject({
           Bucket: BUCKET,
           Key: record.s3.object.key
@@ -57,6 +65,7 @@ module.exports.importFileParser = async (event) => {
           s3Stream.pipe(csv())
             .on('data', (data) => {
               console.log(data);
+              results.push({...data, price: +data.price, count: +data.count});
             })
             .on('end', async () => {
               console.log(`Copy from ${BUCKET}/${record.s3.object.key}`);
@@ -77,11 +86,50 @@ module.exports.importFileParser = async (event) => {
               console.log(`Deleted ${BUCKET}/${record.s3.object.key}`);
             })
         );
+        results.forEach(item => {
+          sqs.sendMessage({
+            QueueUrl: process.env.SQS_URL,
+            MessageBody: JSON.stringify(item)
+          }, (error, data) => {
+            if (error) {
+              console.log(`Error for send to SQS: ${error}`);
+            } else {
+              console.log(`Message was sent to SQS: ${data}`);
+            }
+          });
+        });
+
       };
       event.Records.forEach(fn);
     });
-  }
+  };
 
   await handle();
   console.log('finish');
+};
+
+module.exports.catalogBatchProcess = (event) => {
+
+  const sns = new AWS.SNS({region: 'eu-west-1'});
+  const client = new pg.Client(DB_CONFIG);
+
+  const fn = async (event) => {
+    try {
+      console.log(event);
+      const item = JSON.parse(event.body);
+      await client.connect();
+      await client.query(CREATE_PRODUCT, [item.title, item.description || '', item.price, item.img || '', item.count || 0]);
+      sns.publish({
+        Subject: 'A new product was added',
+        Message: JSON.stringify(item),
+        TopicArn: process.env.SNS_ARN
+      }, (err, data) => {
+        console.log('Publish result: ' + (err || JSON.stringify(data)));
+      });
+    } catch (e) {
+      console.log('Creating product error: ' + e);
+    }
+  };
+
+  event.Records.forEach(fn);
 };
