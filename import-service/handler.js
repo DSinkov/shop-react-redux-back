@@ -10,7 +10,7 @@ const DB_CONFIG = {
   ssl: {rejectUnauthorized: false},
   connectionTimeoutMillis: 5000
 };
-const CREATE_PRODUCT = 'select new_product($1, $2, $3, $4, $5)';
+const CREATE_PRODUCT = 'select new_product($1, $2, $3, $4, $5)'; // sql function which stored in db instance. Actual code of this function you can find in product-service/sql_draft.txt
 
 const finished = util.promisify(stream.finished);
 
